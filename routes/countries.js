@@ -9,17 +9,35 @@ const router = express.Router();
 
 function computeEstimatedGdp(population, exchange_rate) {
   if (exchange_rate === null || exchange_rate === undefined) return null;
-  const randMultiplier = Math.random() * (2000 - 1000) + 1000; // 1000-2000
+  const randMultiplier = Math.random() * (2000 - 1000) + 1000; // 1000–2000 range
   return (population * randMultiplier) / exchange_rate;
 }
 
-function validateRecord(record) {
-  const errors = {};
-  if (!record.name) errors.name = "is required";
-  if (record.population === undefined || record.population === null)
-    errors.population = "is required";
-  if (!record.currency_code) errors.currency_code = "is required";
-  return Object.keys(errors).length ? errors : null;
+function sanitizeCountryRow(row) {
+  const {
+    id,
+    name,
+    capital,
+    region,
+    population,
+    currency_code,
+    exchange_rate,
+    estimated_gdp,
+    flag_url,
+    last_refreshed_at,
+  } = row;
+  return {
+    id,
+    name,
+    capital,
+    region,
+    population,
+    currency_code,
+    exchange_rate,
+    estimated_gdp,
+    flag_url,
+    last_refreshed_at,
+  };
 }
 
 router.post("/refresh", async (req, res) => {
@@ -40,14 +58,17 @@ router.post("/refresh", async (req, res) => {
 
     const records = countriesData.map((c) => {
       const name = c.name || null;
-      const name_lower = name ? name.toLowerCase() : null;
+      const name_lower = name ? name.toLowerCase() : ""; // never null
+
       const capital = c.capital || null;
       const region = c.region || null;
       const population = Number(c.population) || 0;
+
       let currency_code = null;
       if (Array.isArray(c.currencies) && c.currencies.length > 0) {
         currency_code = c.currencies[0].code || null;
       }
+
       let exchange_rate = null;
       let estimated_gdp = null;
       if (!currency_code) {
@@ -63,8 +84,10 @@ router.post("/refresh", async (req, res) => {
           estimated_gdp = computeEstimatedGdp(population, exchange_rate);
         }
       }
+
       return {
         name,
+        name_lower,
         capital,
         region,
         population,
@@ -77,6 +100,7 @@ router.post("/refresh", async (req, res) => {
     });
 
     await conn.beginTransaction();
+
     await conn.query("TRUNCATE TABLE countries");
 
     for (const r of records) {
@@ -101,7 +125,13 @@ router.post("/refresh", async (req, res) => {
 
     await conn.commit();
 
-    const [allRows] = await conn.query("SELECT * FROM countries");
+    // Fetch summary for image
+    const [allRows] = await conn.query(
+      `SELECT id, name, capital, region, population, currency_code,
+              exchange_rate, estimated_gdp, flag_url, last_refreshed_at
+       FROM countries`
+    );
+
     const total = allRows.length;
     const top5 = allRows
       .filter((r) => r.estimated_gdp !== null && r.estimated_gdp !== undefined)
@@ -129,12 +159,17 @@ router.post("/refresh", async (req, res) => {
   }
 });
 
+// 🌍 Get all countries (with filters)
 router.get("/", async (req, res) => {
   try {
     const { region, currency, sort } = req.query;
-    let sql = "SELECT * FROM countries";
+
+    let sql = `SELECT id, name, capital, region, population, currency_code,
+                      exchange_rate, estimated_gdp, flag_url, last_refreshed_at
+               FROM countries`;
     const where = [];
     const params = [];
+
     if (region) {
       where.push("region = ?");
       params.push(region);
@@ -143,10 +178,12 @@ router.get("/", async (req, res) => {
       where.push("currency_code = ?");
       params.push(currency);
     }
+
     if (where.length) sql += " WHERE " + where.join(" AND ");
     if (sort === "gdp_desc") sql += " ORDER BY estimated_gdp DESC";
+
     const [rows] = await pool.query(sql, params);
-    return res.json(rows);
+    return res.json(rows.map(sanitizeCountryRow));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Internal server error" });
@@ -169,6 +206,7 @@ router.delete("/:name", async (req, res) => {
   }
 });
 
+// 🧾 API status
 router.get("/status", async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT COUNT(*) AS total FROM countries");
@@ -199,16 +237,21 @@ router.get("/image", async (req, res) => {
   }
 });
 
+// 🔍 Get single country
 router.get("/:name", async (req, res) => {
   try {
     const name = req.params.name;
     const [rows] = await pool.query(
-      "SELECT * FROM countries WHERE name_lower = ? LIMIT 1",
+      `SELECT id, name, capital, region, population, currency_code,
+              exchange_rate, estimated_gdp, flag_url, last_refreshed_at
+       FROM countries WHERE name_lower = ? LIMIT 1`,
       [name.toLowerCase()]
     );
+
     if (!rows.length)
       return res.status(404).json({ error: "Country not found" });
-    return res.json(rows[0]);
+
+    return res.json(sanitizeCountryRow(rows[0]));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Internal server error" });
