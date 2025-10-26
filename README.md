@@ -1,4 +1,4 @@
-# 🚀 HNG-13: STAGE 1 (#track_backend)
+# 🚀 HNG-13: STAGE 2 (#track_backend)
 
 ## Country Currency & Exchange API 🌎
 
