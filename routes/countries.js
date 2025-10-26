@@ -9,7 +9,7 @@ const router = express.Router();
 
 function computeEstimatedGdp(population, exchange_rate) {
   if (exchange_rate === null || exchange_rate === undefined) return null;
-  const randMultiplier = Math.random() * (2000 - 1000) + 1000; // 1000–2000 range
+  const randMultiplier = Math.random() * (2000 - 1000) + 1000;
   return (population * randMultiplier) / exchange_rate;
 }
 
@@ -58,7 +58,7 @@ router.post("/refresh", async (req, res) => {
 
     const records = countriesData.map((c) => {
       const name = c.name || null;
-      const name_lower = name ? name.toLowerCase() : ""; // never null
+      const name_lower = name ? name.toLowerCase() : "";
 
       const capital = c.capital || null;
       const region = c.region || null;
@@ -125,7 +125,6 @@ router.post("/refresh", async (req, res) => {
 
     await conn.commit();
 
-    // Fetch summary for image
     const [allRows] = await conn.query(
       `SELECT id, name, capital, region, population, currency_code,
               exchange_rate, estimated_gdp, flag_url, last_refreshed_at
@@ -159,7 +158,6 @@ router.post("/refresh", async (req, res) => {
   }
 });
 
-// 🌍 Get all countries (with filters)
 router.get("/", async (req, res) => {
   try {
     const { region, currency, sort } = req.query;
@@ -237,7 +235,6 @@ router.get("/image", async (req, res) => {
   }
 });
 
-// 🔍 Get single country
 router.get("/:name", async (req, res) => {
   try {
     const name = req.params.name;
