@@ -77,50 +77,26 @@ router.post("/refresh", async (req, res) => {
     });
 
     await conn.beginTransaction();
+    await conn.query("TRUNCATE TABLE countries");
 
     for (const r of records) {
-      const [existingRows] = await conn.query(
-        "SELECT id FROM countries WHERE name_lower = ? LIMIT 1",
-        [r.name_lower]
+      await conn.query(
+        `INSERT INTO countries
+          (name, name_lower, capital, region, population, currency_code, exchange_rate, estimated_gdp, flag_url, last_refreshed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          r.name,
+          r.name_lower,
+          r.capital,
+          r.region,
+          r.population,
+          r.currency_code,
+          r.exchange_rate,
+          r.estimated_gdp,
+          r.flag_url,
+          r.last_refreshed_at,
+        ]
       );
-      if (existingRows.length > 0) {
-        // update
-        await conn.query(
-          `UPDATE countries SET
-            name=?, capital=?, region=?, population=?, currency_code=?, exchange_rate=?, estimated_gdp=?, flag_url=?, last_refreshed_at=?
-           WHERE name_lower = ?`,
-          [
-            r.name,
-            r.capital,
-            r.region,
-            r.population,
-            r.currency_code,
-            r.exchange_rate,
-            r.estimated_gdp,
-            r.flag_url,
-            r.last_refreshed_at,
-            r.name_lower,
-          ]
-        );
-      } else {
-        await conn.query(
-          `INSERT INTO countries
-            (name, name_lower, capital, region, population, currency_code, exchange_rate, estimated_gdp, flag_url, last_refreshed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            r.name,
-            r.name_lower,
-            r.capital,
-            r.region,
-            r.population,
-            r.currency_code,
-            r.exchange_rate,
-            r.estimated_gdp,
-            r.flag_url,
-            r.last_refreshed_at,
-          ]
-        );
-      }
     }
 
     await conn.commit();
