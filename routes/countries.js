@@ -65,7 +65,6 @@ router.post("/refresh", async (req, res) => {
       }
       return {
         name,
-        name_lower,
         capital,
         region,
         population,
