@@ -89,6 +89,8 @@ EXTERNAL_RATES_API=https://api.exchangerate-api.com/v4/latest/USD
 
 ## API Documentation
 
+## 🔗 Live Demo - **https://hngbackend2-production.up.railway.app/**
+
 ### Base URL
 
 The base URL for all country-related API endpoints is `http://localhost:3000`.
